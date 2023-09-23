@@ -1,10 +1,29 @@
+use egui::{Color32, Rect, Sense, Stroke, Vec2};
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct Square {
+    position: egui::Pos2,
+    dimension: egui::Vec2,
+}
+
+impl Square {
+    fn new() -> Self {
+        Self {
+            position: egui::pos2(10.0, 10.0),
+            dimension: egui::vec2(200.0, 75.0),
+        }
+    }
+}
+
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
     // Example stuff:
+    squares: Vec<Square>,
     label: String,
-
+    canvas_size: Vec2,
     // this how you opt-out of serialization of a member
     #[serde(skip)]
     value: f32,
@@ -16,6 +35,8 @@ impl Default for TemplateApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
+            squares: vec![Square::new()],
+            canvas_size: Vec2::splat(500.0),
         }
     }
 }
@@ -31,8 +52,35 @@ impl TemplateApp {
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
-
         Default::default()
+    }
+}
+
+impl egui::Widget for &mut TemplateApp {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        egui::Frame::canvas(ui.style())
+            .show(ui, |ui| {
+                egui::ScrollArea::new([true; 2]).show(ui, |ui| {
+                    //draw shapes (instead of an enum this could be trait objects or whatever really)
+                    for square in self.squares.iter_mut() {
+                        square
+                    }
+
+                    // for shape in self.shapes.iter_mut() {
+                    //     match shape {
+                    //         Shapes::Arrow(arrow) => arrow.render(ui),
+                    //         _ => (),
+                    //     }
+                    // }
+
+                    // fill the scrollarea with canvas space, since we've drawn shapes on
+                    // top and not actually filled the scrollarea with widgets
+                    ui.allocate_at_least(self.canvas_size, Sense::hover());
+                });
+                //this ".response" here at the end just makes sure we return the right type,
+                //you don't have to worry about it too much, but i can explain it if youd like.
+            })
+            .response
     }
 }
 
@@ -45,14 +93,12 @@ impl eframe::App for TemplateApp {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
-
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+        let Self {
+            label,
+            value,
+            diagram,
+        } = self;
+        // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
@@ -81,27 +127,13 @@ impl eframe::App for TemplateApp {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
                     ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to(
-                        "eframe",
-                        "https://github.com/emilk/egui/tree/master/crates/eframe",
-                    );
-                    ui.label(".");
+                    ui.hyperlink_to("FlashTech", "https://github.com/afidegnum");
                 });
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            egui::warn_if_debug_build(ui);
+            ui.add(&mut self.squares) // The central panel the region left after adding TopPanel's and SidePanel's
         });
 
         if false {
