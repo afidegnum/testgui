@@ -23,26 +23,11 @@ impl egui::Widget for &mut Diagram {
         egui::Frame::canvas(ui.style())
             .show(ui, |ui| {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
-                    //draw shapes (instead of an enum this could be trait objects or whatever really)
-                    let resp =
-                        ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-
-                    let relative_to_screen = egui::emath::RectTransform::from_to(
-                        egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
-                        resp.rect,
-                    );
-
-                    let square_from_screen = relative_to_screen.transform_rect(rect);
-
                     for shape in self.shapes.iter_mut() {
                         shape.render(ui);
                     }
-                    // fill the scrollarea with canvas space, since we've drawn shapes on
-                    // top and not actually filled the scrollarea with widgets
                     ui.allocate_at_least(self.canvas_size, Sense::hover());
                 });
-                //this ".response" here at the end just makes sure we return the right type,
-                //you don't have to worry about it too much, but i can explain it if youd like.
             })
             .response
     }
@@ -52,9 +37,45 @@ impl egui::Widget for &mut Diagram {
 pub struct Square {
     position: egui::Pos2,
     dimension: egui::Vec2,
+    attributes: Vec<InnerSquare>,
 }
 
 impl Square {
+    fn new() -> Self {
+        Self {
+            position: egui::pos2(10.0, 10.0),
+            dimension: egui::vec2(200.0, 75.0),
+            attributes: vec![InnerSquare::new()],
+        }
+    }
+
+    fn render(&mut self, ui: &mut egui::Ui) {
+        let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+        let relative_to_screen = egui::emath::RectTransform::from_to(
+            egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
+            resp.rect,
+        );
+
+        let rounding_radius = 2.0;
+        let fill = egui::Color32::LIGHT_GREEN;
+        let stroke = egui::epaint::Stroke::new(1.0, Color32::DARK_BLUE);
+        let square_body =
+            egui::Rect::from_min_size(egui::pos2(10.0, 100.0), egui::vec2(200.0, 75.0));
+
+        let square_from_screen = relative_to_screen.transform_rect(square_body);
+
+        ui.painter()
+            .rect(square_from_screen, rounding_radius, fill, stroke);
+    }
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct InnerSquare {
+    position: egui::Pos2,
+    dimension: egui::Vec2,
+}
+
+impl InnerSquare {
     fn new() -> Self {
         Self {
             position: egui::pos2(10.0, 10.0),
@@ -63,22 +84,22 @@ impl Square {
     }
 
     fn render(&mut self, ui: &mut egui::Ui) {
-        //everything in egui is in screen space coordinates, so this is to find where the "ui cursor"
-        //is on the screen (aka hopefully the top left of our ScrollArea's area)
-        let shape = ui.painter().add(egui::Shape::Noop);
+        let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+        let relative_to_screen = egui::emath::RectTransform::from_to(
+            egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
+            resp.rect,
+        );
+
         let rounding_radius = 2.0;
-
-        let rounding = egui::Rounding::same(rounding_radius);
-
+        let fill = egui::Color32::LIGHT_GREEN;
+        let stroke = egui::epaint::Stroke::new(1.0, Color32::DARK_BLUE);
         let square_body =
             egui::Rect::from_min_size(egui::pos2(10.0, 100.0), egui::vec2(200.0, 75.0));
-        let square = egui::Shape::Rect(egui::epaint::RectShape {
-            rect: square_body,
-            rounding,
-            fill: egui::Color32::LIGHT_GREEN,
-            stroke: egui::epaint::Stroke::new(1.0, Color32::DARK_BLUE),
-        });
-        ui.painter().set(shape, square);
+
+        let square_from_screen = relative_to_screen.transform_rect(square_body);
+
+        ui.painter()
+            .rect(square_from_screen, rounding_radius, fill, stroke);
     }
 }
 
