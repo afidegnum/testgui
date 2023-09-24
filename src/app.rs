@@ -1,6 +1,52 @@
 use egui::{Color32, Rect, Sense, Stroke, Vec2};
+use emath::Pos2;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
+///
+#[derive(serde::Deserialize, serde::Serialize)]
+struct Diagram {
+    shapes: Vec<Square>,
+    canvas_size: Vec2,
+}
+
+impl Diagram {
+    fn new() -> Self {
+        Self {
+            shapes: vec![Square::new()],
+            canvas_size: Vec2::splat(500.0),
+        }
+    }
+}
+
+impl egui::Widget for &mut Diagram {
+    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        egui::Frame::canvas(ui.style())
+            .show(ui, |ui| {
+                egui::ScrollArea::new([true; 2]).show(ui, |ui| {
+                    //draw shapes (instead of an enum this could be trait objects or whatever really)
+                    let resp =
+                        ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+
+                    let relative_to_screen = egui::emath::RectTransform::from_to(
+                        egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
+                        resp.rect,
+                    );
+
+                    let square_from_screen = relative_to_screen.transform_rect(rect);
+
+                    for shape in self.shapes.iter_mut() {
+                        shape.render(ui);
+                    }
+                    // fill the scrollarea with canvas space, since we've drawn shapes on
+                    // top and not actually filled the scrollarea with widgets
+                    ui.allocate_at_least(self.canvas_size, Sense::hover());
+                });
+                //this ".response" here at the end just makes sure we return the right type,
+                //you don't have to worry about it too much, but i can explain it if youd like.
+            })
+            .response
+    }
+}
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub struct Square {
@@ -15,15 +61,33 @@ impl Square {
             dimension: egui::vec2(200.0, 75.0),
         }
     }
+
+    fn render(&mut self, ui: &mut egui::Ui) {
+        //everything in egui is in screen space coordinates, so this is to find where the "ui cursor"
+        //is on the screen (aka hopefully the top left of our ScrollArea's area)
+        let shape = ui.painter().add(egui::Shape::Noop);
+        let rounding_radius = 2.0;
+
+        let rounding = egui::Rounding::same(rounding_radius);
+
+        let square_body =
+            egui::Rect::from_min_size(egui::pos2(10.0, 100.0), egui::vec2(200.0, 75.0));
+        let square = egui::Shape::Rect(egui::epaint::RectShape {
+            rect: square_body,
+            rounding,
+            fill: egui::Color32::LIGHT_GREEN,
+            stroke: egui::epaint::Stroke::new(1.0, Color32::DARK_BLUE),
+        });
+        ui.painter().set(shape, square);
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
     // Example stuff:
-    squares: Vec<Square>,
+    diagram: Diagram,
     label: String,
-    canvas_size: Vec2,
     // this how you opt-out of serialization of a member
     #[serde(skip)]
     value: f32,
@@ -35,8 +99,7 @@ impl Default for TemplateApp {
             // Example stuff:
             label: "Hello World!".to_owned(),
             value: 2.7,
-            squares: vec![Square::new()],
-            canvas_size: Vec2::splat(500.0),
+            diagram: Diagram::new(),
         }
     }
 }
@@ -56,34 +119,6 @@ impl TemplateApp {
     }
 }
 
-impl egui::Widget for &mut TemplateApp {
-    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        egui::Frame::canvas(ui.style())
-            .show(ui, |ui| {
-                egui::ScrollArea::new([true; 2]).show(ui, |ui| {
-                    //draw shapes (instead of an enum this could be trait objects or whatever really)
-                    for square in self.squares.iter_mut() {
-                        square
-                    }
-
-                    // for shape in self.shapes.iter_mut() {
-                    //     match shape {
-                    //         Shapes::Arrow(arrow) => arrow.render(ui),
-                    //         _ => (),
-                    //     }
-                    // }
-
-                    // fill the scrollarea with canvas space, since we've drawn shapes on
-                    // top and not actually filled the scrollarea with widgets
-                    ui.allocate_at_least(self.canvas_size, Sense::hover());
-                });
-                //this ".response" here at the end just makes sure we return the right type,
-                //you don't have to worry about it too much, but i can explain it if youd like.
-            })
-            .response
-    }
-}
-
 impl eframe::App for TemplateApp {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
@@ -95,8 +130,8 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let Self {
             label,
-            value,
             diagram,
+            value,
         } = self;
         // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
@@ -133,7 +168,7 @@ impl eframe::App for TemplateApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(&mut self.squares) // The central panel the region left after adding TopPanel's and SidePanel's
+            ui.add(&mut self.diagram) // The central panel the region left after adding TopPanel's and SidePanel's
         });
 
         if false {
