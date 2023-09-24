@@ -1,6 +1,10 @@
 use egui::{Color32, Rect, Sense, Stroke, Vec2};
 use emath::Pos2;
 
+pub const INIT_POS: Pos2 = egui::pos2(10.0, 15.0);
+pub const ATTR_SIZE: Vec2 = egui::vec2(200.0, 75.0);
+pub const ATTR_PADDING: Vec2 = egui::vec2(15.0, 10.0);
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 ///
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -13,7 +17,7 @@ impl Diagram {
     fn new() -> Self {
         Self {
             shapes: vec![Square::new()],
-            canvas_size: Vec2::splat(500.0),
+            canvas_size: Vec2::splat(400.0),
         }
     }
 }
@@ -43,8 +47,8 @@ pub struct Square {
 impl Square {
     fn new() -> Self {
         Self {
-            position: egui::pos2(10.0, 10.0),
-            dimension: egui::vec2(200.0, 75.0),
+            position: egui::pos2(INIT_POS.x, INIT_POS.y),
+            dimension: egui::vec2(ATTR_SIZE.x + ATTR_PADDING.x, ATTR_SIZE.y + ATTR_PADDING.y),
             attributes: vec![InnerSquare::new()],
         }
     }
@@ -56,11 +60,14 @@ impl Square {
             resp.rect,
         );
 
+        let init_sq = Self::new();
         let rounding_radius = 2.0;
         let fill = egui::Color32::LIGHT_GREEN;
-        let stroke = egui::epaint::Stroke::new(1.0, Color32::DARK_BLUE);
-        let square_body =
-            egui::Rect::from_min_size(egui::pos2(10.0, 100.0), egui::vec2(200.0, 75.0));
+        let stroke = egui::epaint::Stroke::new(2.0, Color32::DARK_BLUE);
+        let square_body = egui::Rect::from_min_size(
+            egui::pos2(init_sq.position.x, init_sq.position.y),
+            egui::vec2(init_sq.dimension.x, init_sq.dimension.y),
+        );
 
         let square_from_screen = relative_to_screen.transform_rect(square_body);
 
@@ -78,8 +85,8 @@ pub struct InnerSquare {
 impl InnerSquare {
     fn new() -> Self {
         Self {
-            position: egui::pos2(10.0, 10.0),
-            dimension: egui::vec2(200.0, 75.0),
+            position: egui::pos2(INIT_POS.x, INIT_POS.y),
+            dimension: egui::vec2(ATTR_SIZE.x, ATTR_SIZE.y),
         }
     }
 
@@ -89,12 +96,15 @@ impl InnerSquare {
             egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
             resp.rect,
         );
+        let inner_sq = Self::new();
 
         let rounding_radius = 2.0;
-        let fill = egui::Color32::LIGHT_GREEN;
-        let stroke = egui::epaint::Stroke::new(1.0, Color32::DARK_BLUE);
-        let square_body =
-            egui::Rect::from_min_size(egui::pos2(10.0, 100.0), egui::vec2(200.0, 75.0));
+        let fill = egui::Color32::LIGHT_BLUE;
+        let stroke = egui::epaint::Stroke::new(1.0, Color32::BLACK);
+        let square_body = egui::Rect::from_min_size(
+            egui::pos2(inner_sq.position.x, inner_sq.position.y),
+            egui::vec2(inner_sq.dimension.x, inner_sq.dimension.y),
+        );
 
         let square_from_screen = relative_to_screen.transform_rect(square_body);
 
