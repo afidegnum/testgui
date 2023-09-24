@@ -52,28 +52,60 @@ impl Square {
             attributes: vec![InnerSquare::new()],
         }
     }
-
     fn render(&mut self, ui: &mut egui::Ui) {
-        let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        let relative_to_screen = egui::emath::RectTransform::from_to(
-            egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
-            resp.rect,
-        );
-
-        let init_sq = Self::new();
-        let rounding_radius = 2.0;
-        let fill = egui::Color32::LIGHT_GREEN;
-        let stroke = egui::epaint::Stroke::new(2.0, Color32::DARK_BLUE);
-        let square_body = egui::Rect::from_min_size(
-            egui::pos2(init_sq.position.x, init_sq.position.y),
-            egui::vec2(init_sq.dimension.x, init_sq.dimension.y),
-        );
-
-        let square_from_screen = relative_to_screen.transform_rect(square_body);
-
-        ui.painter()
-            .rect(square_from_screen, rounding_radius, fill, stroke);
+        let square_body = egui::Rect::from_min_size(self.position, self.dimension);
+        //"finalized rect" which is offset properly
+        let transformed_rect = {
+            let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+            let relative_to_screen = egui::emath::RectTransform::from_to(
+                egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
+                resp.rect,
+            );
+            relative_to_screen.transform_rect(square_body)
+        };
+        // It would probably be better to use a frame than draw everything manually
+        // the frame will resize properly to everything you put inside it
+        // and we don't have to deal with draw order shenanigans
+        let frame = {
+            let rounding_radius = 2.0;
+            let fill = egui::Color32::LIGHT_GREEN;
+            let stroke = egui::epaint::Stroke::new(2.0, Color32::DARK_BLUE);
+            egui::Frame::none()
+                .rounding(rounding_radius)
+                .fill(fill)
+                .stroke(stroke)
+        };
+        //Creates a new ui where our square is supposed to appear
+        ui.allocate_ui_at_rect(transformed_rect, |ui| {
+            frame.show(ui, |ui| {
+                //draw each attribute
+                for inner_square in self.attributes.iter_mut() {
+                    inner_square.render(ui);
+                }
+            });
+        });
     }
+    // fn render(&mut self, ui: &mut egui::Ui) {
+    //     let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+    //     let relative_to_screen = egui::emath::RectTransform::from_to(
+    //         egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
+    //         resp.rect,
+    //     );
+
+    //     let init_sq = Self::new();
+    //     let rounding_radius = 2.0;
+    //     let fill = egui::Color32::LIGHT_GREEN;
+    //     let stroke = egui::epaint::Stroke::new(2.0, Color32::DARK_BLUE);
+    //     let square_body = egui::Rect::from_min_size(
+    //         egui::pos2(init_sq.position.x, init_sq.position.y),
+    //         egui::vec2(init_sq.dimension.x, init_sq.dimension.y),
+    //     );
+
+    //     let square_from_screen = relative_to_screen.transform_rect(square_body);
+
+    //     ui.painter()
+    //         .rect(square_from_screen, rounding_radius, fill, stroke);
+    // }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -89,28 +121,41 @@ impl InnerSquare {
             dimension: egui::vec2(ATTR_SIZE.x, ATTR_SIZE.y),
         }
     }
-
     fn render(&mut self, ui: &mut egui::Ui) {
-        let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
-        let relative_to_screen = egui::emath::RectTransform::from_to(
-            egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
-            resp.rect,
-        );
-        let inner_sq = Self::new();
+        //this replaces all the transform and ui.allocate code.
+        //this also removes the need for ``position`` in InnerSquare, since the
+        // ``Square``s ui will lay everything out for us
+        let (rect, resp) = ui.allocate_at_least(self.dimension, Sense::hover());
 
         let rounding_radius = 2.0;
         let fill = egui::Color32::LIGHT_BLUE;
         let stroke = egui::epaint::Stroke::new(1.0, Color32::BLACK);
-        let square_body = egui::Rect::from_min_size(
-            egui::pos2(inner_sq.position.x, inner_sq.position.y),
-            egui::vec2(inner_sq.dimension.x, inner_sq.dimension.y),
-        );
 
-        let square_from_screen = relative_to_screen.transform_rect(square_body);
-
-        ui.painter()
-            .rect(square_from_screen, rounding_radius, fill, stroke);
+        //draw the rect
+        ui.painter().rect(rect, rounding_radius, fill, stroke);
     }
+
+    // fn render(&mut self, ui: &mut egui::Ui) {
+    //     let resp = ui.allocate_rect(ui.available_rect_before_wrap(), egui::Sense::hover());
+    //     let relative_to_screen = egui::emath::RectTransform::from_to(
+    //         egui::Rect::from_min_size(Pos2::ZERO, resp.rect.size()),
+    //         resp.rect,
+    //     );
+    //     let inner_sq = Self::new();
+
+    //     let rounding_radius = 2.0;
+    //     let fill = egui::Color32::LIGHT_BLUE;
+    //     let stroke = egui::epaint::Stroke::new(1.0, Color32::BLACK);
+    //     let square_body = egui::Rect::from_min_size(
+    //         egui::pos2(inner_sq.position.x, inner_sq.position.y),
+    //         egui::vec2(inner_sq.dimension.x, inner_sq.dimension.y),
+    //     );
+
+    //     let square_from_screen = relative_to_screen.transform_rect(square_body);
+
+    //     ui.painter()
+    //         .rect(square_from_screen, rounding_radius, fill, stroke);
+    // }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
