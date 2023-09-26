@@ -193,7 +193,7 @@ impl InnerSquare {
 // #[derive(serde::Deserialize, serde::Serialize)]
 pub enum TaskMessage {
     //Applicaple to any scenario, behaves almost like a callback
-    Generic(Box<dyn FnOnce(&mut TemplateApp) + Send>),
+    Generic(Box<dyn FnOnce(&mut Diagram) + Send>),
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
