@@ -1,7 +1,10 @@
-use egui::{Color32, FontId, Sense, Vec2};
-use emath::{Align2, Pos2};
+use std::sync::mpsc::{Receiver, Sender};
 
 use crate::meta::get_metadata;
+use egui::{Color32, FontId, Sense, Vec2};
+use emath::{Align2, Pos2};
+use tokio::runtime;
+use tokio_postgres::NoTls;
 
 pub const INIT_POS: Pos2 = egui::pos2(10.0, 15.0);
 pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
@@ -29,15 +32,23 @@ impl egui::Widget for &mut Diagram {
         egui::Frame::canvas(ui.style())
             .show(ui, |ui| {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
-                    let (client, connection) = tokio_postgres::connect(
-                        "postgresql://postgres:chou1979@localhost/authenticate",
-                        NoTls,
-                    )
-                    .await
-                    .unwrap();
+                    let rt = runtime::Runtime::new().unwrap();
 
-                    let schema = "public".to_string();
-                    let meta_data = get_metadata(&client, schema).await;
+                    rt.block_on(async {
+                        tokio::task::spawn_blocking(|| {
+                            let (client, connection) = tokio_postgres::connect(
+                                "postgresql://postgres:chou1979@localhost/authenticate",
+                                NoTls,
+                            )
+                            .await
+                            .unwrap();
+
+                            let schema = "public".to_string();
+                            let meta_data = get_metadata(&client, schema).await;
+                        })
+                        .await
+                        .unwrap();
+                    });
 
                     for shape in self.shapes.iter_mut() {
                         let container = "container".to_string();
@@ -148,6 +159,12 @@ impl InnerSquare {
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
+enum TaskMessage {
+    //Applicaple to any scenario, behaves almost like a callback
+    Generic(Box<dyn FnOnce(&mut TemplateApp) + Send>),
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
     // Example stuff:
@@ -156,6 +173,12 @@ pub struct TemplateApp {
     // this how you opt-out of serialization of a member
     #[serde(skip)]
     value: f32,
+    //this is what the ui thread will just to catch returns of tasks, in this case it's the std
+    //mpsc channels, but any channel which has smiliar behaviour works
+    task_reciever: Receiver<TaskMessage>,
+    //the ui thread doesn't use this, but gives it to "worker threads" when spawing them
+    //this can also be given to a thread that works alongside the ui thread from the start (if you have one)
+    _task_sender: Sender<TaskMessage>,
 }
 
 impl Default for TemplateApp {
