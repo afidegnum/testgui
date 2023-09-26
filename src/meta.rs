@@ -99,7 +99,7 @@ pub async fn get_metadata(
 
     let finalized = rows.into_iter().map(Table::from).collect();
 
-    let gen_function = move |diagram: &mut Diagram| {
+    let gen_function = move |diagram: &crate::app::Diagram| {
         //from here you have access to the diagram!
         //now you can put in the code to tell it what to do with the metadata
     };

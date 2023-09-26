@@ -14,7 +14,7 @@ pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
 ///
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default = "Diagram::new")]
-struct Diagram {
+pub struct Diagram {
     shapes: Vec<Square>,
     canvas_size: Vec2,
     #[serde(skip)]
