@@ -16,6 +16,12 @@ pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
 struct Diagram {
     shapes: Vec<Square>,
     canvas_size: Vec2,
+    #[serde(skip)]
+    task_reciever: Receiver<TaskMessage>,
+    //the ui thread doesn't use this, but gives it to "worker threads" when spawing them
+    //this can also be given to a thread that works alongside the ui thread from the start (if you have one)
+    #[serde(skip)]
+    _task_sender: Sender<TaskMessage>,
 }
 
 impl Diagram {
@@ -23,6 +29,21 @@ impl Diagram {
         Self {
             shapes: vec![Square::new()],
             canvas_size: Vec2::splat(400.0),
+            task_reciever: todo!(),
+            _task_sender: todo!(),
+        }
+    }
+
+    pub fn handle_responses(&mut self) {
+        let responses: Vec<TaskMessage> = self.task_reciever.try_iter().collect();
+        for response in responses {
+            match response {
+                TaskMessage::Generic(gen_function) => {
+                    //Since "gen_function" is of type "FnOnce(&mut MyApp)",
+                    //We can call it like a function with ourself as the parameter,
+                    gen_function(self);
+                }
+            }
         }
     }
 }
@@ -55,14 +76,6 @@ impl egui::Widget for &mut Diagram {
                         //
                         //
                         //you'll probably want to use somehting like this since it's what you returned earlier
-                        let finalized = rows.into_iter().map(Table::from).collect();
-
-                        let gen_function = move |diagram: &mut Diagram| {
-                            //from here you have access to the diagram!
-                            //now you can put in the code to tell it what to do with the metadata
-                        };
-                        sender.send(Box::new(gen_function)).unwrap();
-                        ctx.request_repaint();
                     })
                     .await
                     .unwrap();
@@ -193,12 +206,6 @@ pub struct TemplateApp {
     value: f32,
     //this is what the ui thread will just to catch returns of tasks, in this case it's the std
     //mpsc channels, but any channel which has smiliar behaviour works
-    #[serde(skip)]
-    task_reciever: Receiver<TaskMessage>,
-    //the ui thread doesn't use this, but gives it to "worker threads" when spawing them
-    //this can also be given to a thread that works alongside the ui thread from the start (if you have one)
-    #[serde(skip)]
-    _task_sender: Sender<TaskMessage>,
 }
 
 impl Default for TemplateApp {
@@ -208,8 +215,6 @@ impl Default for TemplateApp {
             label: "Hello World!".to_owned(),
             value: 2.7,
             diagram: Diagram::new(),
-            task_reciever: todo!(),
-            _task_sender: todo!(),
         }
     }
 }
@@ -227,18 +232,6 @@ impl TemplateApp {
         // }
         Default::default()
     }
-    pub fn handle_responses(&mut self) {
-        let responses: Vec<TaskMessage> = self.task_reciever.try_iter().collect();
-        for response in responses {
-            match response {
-                TaskMessage::Generic(gen_function) => {
-                    //Since "gen_function" is of type "FnOnce(&mut MyApp)",
-                    //We can call it like a function with ourself as the parameter,
-                    gen_function(self);
-                }
-            }
-        }
-    }
 }
 
 impl eframe::App for TemplateApp {
@@ -254,11 +247,9 @@ impl eframe::App for TemplateApp {
             label,
             diagram,
             value,
-            task_reciever,
-            _task_sender,
         } = self;
-        self.handle_responses(); //
-                                 // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+
+        // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
