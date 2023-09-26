@@ -158,7 +158,7 @@ impl InnerSquare {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+// #[derive(serde::Deserialize, serde::Serialize)]
 enum TaskMessage {
     //Applicaple to any scenario, behaves almost like a callback
     Generic(Box<dyn FnOnce(&mut TemplateApp) + Send>),
@@ -175,9 +175,11 @@ pub struct TemplateApp {
     value: f32,
     //this is what the ui thread will just to catch returns of tasks, in this case it's the std
     //mpsc channels, but any channel which has smiliar behaviour works
+    #[serde(skip)]
     task_reciever: Receiver<TaskMessage>,
     //the ui thread doesn't use this, but gives it to "worker threads" when spawing them
     //this can also be given to a thread that works alongside the ui thread from the start (if you have one)
+    #[serde(skip)]
     _task_sender: Sender<TaskMessage>,
 }
 
@@ -188,6 +190,8 @@ impl Default for TemplateApp {
             label: "Hello World!".to_owned(),
             value: 2.7,
             diagram: Diagram::new(),
+            task_reciever: todo!(),
+            _task_sender: todo!(),
         }
     }
 }
@@ -220,6 +224,8 @@ impl eframe::App for TemplateApp {
             label,
             diagram,
             value,
+            task_reciever,
+            _task_sender,
         } = self;
         // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
