@@ -1,9 +1,11 @@
-use egui::{Color32, Rect, Sense, Stroke, Vec2};
-use emath::Pos2;
+use egui::{Color32, FontId, Sense, Vec2};
+use emath::{Align2, Pos2};
+
+use crate::meta::get_metadata;
 
 pub const INIT_POS: Pos2 = egui::pos2(10.0, 15.0);
-pub const ATTR_SIZE: Vec2 = egui::vec2(200.0, 75.0);
-pub const ATTR_PADDING: Vec2 = egui::vec2(15.0, 10.0);
+pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
+// pub const ATTR_PADDING: Vec2 = egui::vec2(15.0, 10.0);
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 ///
@@ -27,8 +29,20 @@ impl egui::Widget for &mut Diagram {
         egui::Frame::canvas(ui.style())
             .show(ui, |ui| {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
+                    let (client, connection) = tokio_postgres::connect(
+                        "postgresql://postgres:chou1979@localhost/authenticate",
+                        NoTls,
+                    )
+                    .await
+                    .unwrap();
+
+                    let schema = "public".to_string();
+                    let meta_data = get_metadata(&client, schema).await;
+
                     for shape in self.shapes.iter_mut() {
-                        shape.render(ui);
+                        let container = "container".to_string();
+
+                        shape.render(ui, container);
                     }
                     ui.allocate_at_least(self.canvas_size, Sense::hover());
                 });
@@ -52,7 +66,7 @@ impl Square {
             attributes: vec![InnerSquare::new()],
         }
     }
-    fn render(&mut self, ui: &mut egui::Ui) {
+    fn render(&mut self, ui: &mut egui::Ui, container: String) {
         let square_body = egui::Rect::from_min_size(self.position, self.dimension);
         //"finalized rect" which is offset properly
         let transformed_rect = {
@@ -75,12 +89,17 @@ impl Square {
                 .rounding(rounding_radius)
                 .fill(fill)
                 .stroke(stroke)
-                .inner_margin(20.0)
+                .inner_margin(10.0)
         };
         //Creates a new ui where our square is supposed to appear
         ui.allocate_ui_at_rect(transformed_rect, |ui| {
             frame.show(ui, |ui| {
                 //draw each attribute
+                ui.label(
+                    egui::RichText::new(container)
+                        .heading()
+                        .color(egui::Color32::BLACK),
+                );
                 for inner_square in self.attributes.iter_mut() {
                     inner_square.render(ui);
                 }
@@ -116,9 +135,15 @@ impl InnerSquare {
         let rounding_radius = 2.0;
         let stroke = egui::epaint::Stroke::new(1.0, Color32::BLACK);
 
-        ui.label("INNER RECT");
         //draw the rect
         ui.painter().rect(rect, rounding_radius, fill, stroke);
+        ui.painter().text(
+            rect.center(),
+            Align2::CENTER_CENTER,
+            "INNER RECT",
+            FontId::proportional(14.0),
+            Color32::BLACK,
+        );
     }
 }
 
@@ -152,9 +177,9 @@ impl TemplateApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
-        if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
-        }
+        // if let Some(storage) = cc.storage {
+        //     return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+        // }
         Default::default()
     }
 }
