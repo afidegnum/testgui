@@ -103,7 +103,10 @@ pub async fn get_metadata(
         //from here you have access to the diagram!
         //now you can put in the code to tell it what to do with the metadata
     };
-    sender.send(Box::new(gen_function)).unwrap();
+    // sender.send(Box::new(gen_function)).unwrap();
+    sender
+        .send(crate::app::TaskMessage::Generic(Box::new(gen_function)))
+        .unwrap();
     ctx.request_repaint();
 
     Ok(rows.into_iter().map(Table::from).collect())
