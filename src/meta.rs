@@ -61,7 +61,7 @@ pub async fn get_metadata(
     schema: String,
     ctx: egui::Context,
     sender: Sender<crate::app::TaskMessage>,
-) -> Result<Vec<Table>, MetadataError> {
+) -> Result<(), MetadataError> {
     let qry = r#"
         select row_to_json(Tb) as tbls from(
         SELECT T."table_name", (select json_agg(col) from (
@@ -97,9 +97,9 @@ pub async fn get_metadata(
     let stmt = client.prepare(qry).await?;
     let rows = client.query(&stmt, &[&schema]).await?;
 
-    let finalized = rows.into_iter().map(Table::from).collect();
+    let finalized: Vec<Table> = rows.into_iter().map(Table::from).collect();
 
-    let gen_function = move |diagram: &crate::app::Diagram| {
+    let gen_function = move |diagram: &mut crate::app::Diagram| {
         //from here you have access to the diagram!
         //now you can put in the code to tell it what to do with the metadata
     };
@@ -109,7 +109,7 @@ pub async fn get_metadata(
         .unwrap();
     ctx.request_repaint();
 
-    Ok(rows.into_iter().map(Table::from).collect())
+    Ok(())
     // Execute the query and collect the results
     // let rows = client.query(query, &[&schema]).await;
 }

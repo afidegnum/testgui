@@ -56,30 +56,30 @@ impl egui::Widget for &mut Diagram {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
                     // let rt = runtime::Runtime::new().unwrap();
 
-                    tokio::task::spawn_blocking(|| {
-                        let (client, connection) = tokio_postgres::connect(
-                            "postgresql://postgres:chou1979@localhost/authenticate",
-                            NoTls,
-                        )
-                        .await
-                        .unwrap();
+                    // tokio::task::spawn_blocking(|| {
+                    //     let (client, connection) = tokio_postgres::connect(
+                    //         "postgresql://postgres:chou1979@localhost/authenticate",
+                    //         NoTls,
+                    //     )
+                    //     .await
+                    //     .unwrap();
 
-                        let schema = "public".to_string();
-                        // let meta_data = get_metadata(&client, schema).await;
-                        //
-                        //
-                        let sender = self._task_sender.clone();
-                        let other_ctx = ui.ctx().clone();
-                        //requires you add the "rt" feature to tokio!!
-                        tokio::task::spawn(async {
-                            get_metadata(&client, schema, other_ctx, sender)
-                        });
-                        //
-                        //
-                        //you'll probably want to use somehting like this since it's what you returned earlier
-                    })
-                    .await
-                    .unwrap();
+                    //     let schema = "public".to_string();
+                    //     // let meta_data = get_metadata(&client, schema).await;
+                    //     //
+                    //     //
+                    //     let sender = self._task_sender.clone();
+                    //     let other_ctx = ui.ctx().clone();
+                    //     //requires you add the "rt" feature to tokio!!
+                    //     tokio::task::spawn(async {
+                    //         get_metadata(&client, schema, other_ctx, sender)
+                    //     });
+                    //     //
+                    //     //
+                    //     //you'll probably want to use somehting like this since it's what you returned earlier
+                    // })
+                    // .await
+                    // .unwrap();
                     // rt.block_on(async {});
 
                     for shape in self.shapes.iter_mut() {
