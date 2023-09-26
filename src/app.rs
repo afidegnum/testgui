@@ -13,6 +13,7 @@ pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 ///
 #[derive(serde::Deserialize, serde::Serialize)]
+#[serde(default = "Diagram::new")]
 struct Diagram {
     shapes: Vec<Square>,
     canvas_size: Vec2,
