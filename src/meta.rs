@@ -3,6 +3,7 @@ use serde_json::Value;
 use std::error::Error;
 use std::fmt;
 use std::ptr::null;
+use std::sync::mpsc::Sender;
 use std::{thread, time};
 use tokio::runtime::Runtime;
 use tokio_postgres::tls::NoTlsStream;
@@ -55,7 +56,12 @@ impl From<Row> for Table {
     }
 }
 
-pub async fn get_metadata(client: &Client, schema: String) -> Result<Vec<Table>, MetadataError> {
+pub async fn get_metadata(
+    client: &Client,
+    schema: String,
+    ctx: egui::Context,
+    sender: Sender<crate::app::TaskMessage>,
+) -> Result<Vec<Table>, MetadataError> {
     let qry = r#"
         select row_to_json(Tb) as tbls from(
         SELECT T."table_name", (select json_agg(col) from (

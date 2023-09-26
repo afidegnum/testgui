@@ -44,7 +44,24 @@ impl egui::Widget for &mut Diagram {
                             .unwrap();
 
                             let schema = "public".to_string();
-                            let meta_data = get_metadata(&client, schema).await;
+                            // let meta_data = get_metadata(&client, schema).await;
+                            //
+                            //
+                            let sender = self._task_sender.clone();
+                            let other_ctx = ui.ctx().clone();
+                            //!!requires you add the "rt" feature to tokio!!
+                            tokio::task::spawn( async { get_metadata(&client, schema, other_ctx, sender)});
+                            //
+                            //
+                              //you'll probably want to use somehting like this since it's what you returned earlier
+                            let finalized = rows.into_iter().map(Table::from).collect();
+
+                            let gen_function = move |diagram: &mut Diagram| {
+                                //from here you have access to the diagram!
+                                //now you can put in the code to tell it what to do with the metadata
+                            };
+                            sender.send(Box::new(gen_function)).unwrap();
+                            ctx.request_repaint();
                         })
                         .await
                         .unwrap();
@@ -159,7 +176,7 @@ impl InnerSquare {
 }
 
 // #[derive(serde::Deserialize, serde::Serialize)]
-enum TaskMessage {
+pub enum TaskMessage {
     //Applicaple to any scenario, behaves almost like a callback
     Generic(Box<dyn FnOnce(&mut TemplateApp) + Send>),
 }
@@ -209,6 +226,18 @@ impl TemplateApp {
         // }
         Default::default()
     }
+    pub fn handle_responses(&mut self) {
+        let responses: Vec<TaskMessage> = self.task_reciever.try_iter().collect();
+        for response in responses {
+            match response {
+                TaskMessage::Generic(gen_function) => {
+                    //Since "gen_function" is of type "FnOnce(&mut MyApp)",
+                    //We can call it like a function with ourself as the parameter,
+                    gen_function(self);
+                }
+            }
+        }
+    }
 }
 
 impl eframe::App for TemplateApp {
@@ -227,7 +256,8 @@ impl eframe::App for TemplateApp {
             task_reciever,
             _task_sender,
         } = self;
-        // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
+        self.handle_responses(); //
+                                 // #[cfg(not(target_arch = "wasm32"))] // no File->Quit on web pages!
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             // The top panel is often a good place for a menu bar:
             egui::menu::bar(ui, |ui| {
