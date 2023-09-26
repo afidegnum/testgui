@@ -102,6 +102,9 @@ pub async fn get_metadata(
     let gen_function = move |diagram: &mut crate::app::Diagram| {
         //from here you have access to the diagram!
         //now you can put in the code to tell it what to do with the metadata
+        for tbl in finalized {
+            diagram.handle_responses()
+        }
     };
     // sender.send(Box::new(gen_function)).unwrap();
     sender

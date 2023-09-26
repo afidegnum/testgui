@@ -1,4 +1,4 @@
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::{self, Receiver, Sender};
 
 use crate::meta::get_metadata;
 use egui::{Color32, FontId, Sense, Vec2};
@@ -27,14 +27,14 @@ pub struct Diagram {
 
 impl Diagram {
     fn new() -> Self {
+        let (_task_sender, task_reciever) = mpsc::channel::<TaskMessage>();
         Self {
             shapes: vec![Square::new()],
             canvas_size: Vec2::splat(400.0),
-            task_reciever: todo!(),
-            _task_sender: todo!(),
+            task_reciever,
+            _task_sender,
         }
     }
-
     pub fn handle_responses(&mut self) {
         let responses: Vec<TaskMessage> = self.task_reciever.try_iter().collect();
         for response in responses {
