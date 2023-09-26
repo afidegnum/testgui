@@ -32,40 +32,41 @@ impl egui::Widget for &mut Diagram {
         egui::Frame::canvas(ui.style())
             .show(ui, |ui| {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
-                    let rt = runtime::Runtime::new().unwrap();
+                    // let rt = runtime::Runtime::new().unwrap();
 
-                    rt.block_on(async {
-                        tokio::task::spawn_blocking(|| {
-                            let (client, connection) = tokio_postgres::connect(
-                                "postgresql://postgres:chou1979@localhost/authenticate",
-                                NoTls,
-                            )
-                            .await
-                            .unwrap();
-
-                            let schema = "public".to_string();
-                            // let meta_data = get_metadata(&client, schema).await;
-                            //
-                            //
-                            let sender = self._task_sender.clone();
-                            let other_ctx = ui.ctx().clone();
-                            //!!requires you add the "rt" feature to tokio!!
-                            tokio::task::spawn( async { get_metadata(&client, schema, other_ctx, sender)});
-                            //
-                            //
-                              //you'll probably want to use somehting like this since it's what you returned earlier
-                            let finalized = rows.into_iter().map(Table::from).collect();
-
-                            let gen_function = move |diagram: &mut Diagram| {
-                                //from here you have access to the diagram!
-                                //now you can put in the code to tell it what to do with the metadata
-                            };
-                            sender.send(Box::new(gen_function)).unwrap();
-                            ctx.request_repaint();
-                        })
+                    tokio::task::spawn_blocking(|| {
+                        let (client, connection) = tokio_postgres::connect(
+                            "postgresql://postgres:chou1979@localhost/authenticate",
+                            NoTls,
+                        )
                         .await
                         .unwrap();
-                    });
+
+                        let schema = "public".to_string();
+                        // let meta_data = get_metadata(&client, schema).await;
+                        //
+                        //
+                        let sender = self._task_sender.clone();
+                        let other_ctx = ui.ctx().clone();
+                        //requires you add the "rt" feature to tokio!!
+                        tokio::task::spawn(async {
+                            get_metadata(&client, schema, other_ctx, sender)
+                        });
+                        //
+                        //
+                        //you'll probably want to use somehting like this since it's what you returned earlier
+                        let finalized = rows.into_iter().map(Table::from).collect();
+
+                        let gen_function = move |diagram: &mut Diagram| {
+                            //from here you have access to the diagram!
+                            //now you can put in the code to tell it what to do with the metadata
+                        };
+                        sender.send(Box::new(gen_function)).unwrap();
+                        ctx.request_repaint();
+                    })
+                    .await
+                    .unwrap();
+                    // rt.block_on(async {});
 
                     for shape in self.shapes.iter_mut() {
                         let container = "container".to_string();
