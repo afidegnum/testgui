@@ -57,7 +57,6 @@ impl From<Row> for Table {
 }
 
 pub async fn get_metadata(
-    client: &Client,
     schema: String,
     ctx: egui::Context,
     sender: Sender<crate::app::TaskMessage>,
@@ -93,6 +92,19 @@ pub async fn get_metadata(
         FROM information_schema.tables as T
         WHERE table_schema=$1) Tb;
     "#;
+    let (client, connection) = tokio_postgres::connect(
+        "postgresql://postgres:chou1979@localhost/authenticate",
+        NoTls,
+    )
+    .await
+    .unwrap();
+    // The connection object performs the actual communication with the database,
+    // so spawn it off to run on its own.
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("connection error: {}", e);
+        }
+    });
 
     let stmt = client.prepare(qry).await?;
     let rows = client.query(&stmt, &[&schema]).await?;

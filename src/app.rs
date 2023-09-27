@@ -38,7 +38,7 @@ impl Diagram {
         Self {
             shapes: vec![Square::new()],
 
-            tables,
+            tables: Vec::new(),
             canvas_size: Vec2::splat(400.0),
             task_reciever,
             _task_sender,
@@ -94,15 +94,23 @@ impl egui::Widget for &mut Diagram {
                     let other_ctx = ui.ctx().clone();
 
                     tokio::task::spawn(async {
-                        let (client, connection) = tokio_postgres::connect(
-                            "postgresql://postgres:chou1979@localhost/authenticate",
-                            NoTls,
-                        )
-                        .await
-                        .unwrap();
+                        // let (client, connection) = tokio_postgres::connect(
+                        //     "postgresql://postgres:chou1979@localhost/authenticate",
+                        //     NoTls,
+                        // )
+                        // .await
+                        // .unwrap();
+                        // // The connection object performs the actual communication with the database,
+                        // // so spawn it off to run on its own.
+                        // tokio::spawn(async move {
+                        //     if let Err(e) = connection.await {
+                        //         eprintln!("connection error: {}", e);
+                        //     }
+                        // });
 
                         let schema = "public".to_string();
-                        get_metadata(&client, schema, other_ctx, sender)
+
+                        get_metadata(schema, other_ctx, sender)
                     });
                     // for shape in self.shapes.iter_mut() {
                     //     let container = "container".to_string();
