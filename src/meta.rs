@@ -100,7 +100,7 @@ pub async fn get_metadata(
     .unwrap();
     // The connection object performs the actual communication with the database,
     // so spawn it off to run on its own.
-    tokio::spawn(async move {
+    let conn = tokio::spawn(async move {
         if let Err(e) = connection.await {
             eprintln!("connection error: {}", e);
         }
@@ -110,6 +110,8 @@ pub async fn get_metadata(
     let rows = client.query(&stmt, &[&schema]).await?;
 
     let finalized: Vec<Table> = rows.into_iter().map(Table::from).collect();
+    conn.abort();
+    // println!("{:#?}", finalized);
 
     let gen_function = move |diagram: &mut crate::app::Diagram| {
         diagram.tables = finalized

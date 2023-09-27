@@ -3,6 +3,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use crate::meta::{get_metadata, Table};
 use egui::{Color32, FontId, Sense, Vec2};
 use emath::{Align2, Pos2};
+use std::fmt;
 use tokio::runtime;
 use tokio_postgres::NoTls;
 
@@ -11,11 +12,19 @@ pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
 // pub const ATTR_PADDING: Vec2 = egui::vec2(15.0, 10.0);
 
 // #[derive(serde::Deserialize, serde::Serialize)]
+// #[derive(Debug)]
 pub enum TaskMessage {
     //Applicaple to any scenario, behaves almost like a callback
     Generic(Box<dyn FnOnce(&mut Diagram) + Send>),
 }
 
+impl fmt::Debug for TaskMessage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            TaskMessage::Generic(_) => write!(f, "TaskMessage::Generic(...)"), // Provide a custom debug representation
+        }
+    }
+}
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 ///
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -36,26 +45,38 @@ impl Diagram {
     fn new() -> Self {
         let (_task_sender, task_reciever) = mpsc::channel::<TaskMessage>();
         Self {
-            shapes: vec![Square::new()],
+            shapes: vec![],
 
-            tables: Vec::new(),
+            tables: vec![],
             canvas_size: Vec2::splat(400.0),
             task_reciever,
             _task_sender,
         }
     }
+
     pub fn handle_responses(&mut self) {
-        let responses: Vec<TaskMessage> = self.task_reciever.try_iter().collect();
-        for response in responses {
+        while let Ok(response) = self.task_reciever.try_recv() {
             match response {
                 TaskMessage::Generic(gen_function) => {
-                    //Since "gen_function" is of type "FnOnce(&mut MyApp)",
-                    //We can call it like a function with ourself as the parameter,
                     gen_function(self);
                 }
             }
         }
     }
+
+    // pub fn handle_responses(&mut self) {
+    //     let responses: Vec<TaskMessage> = self.task_reciever.try_iter().collect();
+    //     println!("{:#?}", responses);
+    //     for response in responses {
+    //         match response {
+    //             TaskMessage::Generic(gen_function) => {
+    //                 //Since "gen_function" is of type "FnOnce(&mut MyApp)",
+    //                 //We can call it like a function with ourself as the parameter,
+    //                 gen_function(self);
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 impl egui::Widget for &mut Diagram {
@@ -65,30 +86,31 @@ impl egui::Widget for &mut Diagram {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
                     let sender = self._task_sender.clone();
                     let other_ctx = ui.ctx().clone();
+
                     self.handle_responses();
                     tokio::task::spawn(async {
                         let schema = "public".to_string();
 
-                        get_metadata(schema, other_ctx, sender)
+                        get_metadata(schema, other_ctx, sender).await
                     });
-                    // for shape in self.shapes.iter_mut() {
-                    //     let container = "container".to_string();
 
-                    //     shape.render(ui, container);
-                    // }
-
-                    println!("Pairs: {:#?}, \n {:#?}", self.shapes, self.tables);
-                    for (shape, table) in self.shapes.iter_mut().zip(&self.tables) {
+                    eprintln!("{:#?}", self.tables);
+                    for table in &self.tables {
                         if let Some(table_name) =
                             table.table.get("table_name").and_then(|v| v.as_str())
                         {
-                            println!("Table: {:#?}", table_name.clone());
-                            shape.render(ui, table_name.to_owned());
+                            // println!("{:#?}", table_name);
+                            let square = Square::new(table_name.to_string());
+                            self.shapes.push(square);
                         }
+                    }
+
+                    for shape in self.shapes.iter_mut() {
+                        shape.render(ui);
                     }
                     ui.allocate_at_least(self.canvas_size, Sense::hover());
                 });
-                ui.ctx().set_debug_on_hover(true);
+                // ui.ctx().set_debug_on_hover(true);
             })
             .response
     }
@@ -98,18 +120,20 @@ impl egui::Widget for &mut Diagram {
 pub struct Square {
     position: egui::Pos2,
     dimension: egui::Vec2,
+    label: String,
     attributes: Vec<InnerSquare>,
 }
 
 impl Square {
-    fn new() -> Self {
+    fn new(label: String) -> Self {
         Self {
             position: egui::pos2(INIT_POS.x, INIT_POS.y),
             dimension: egui::vec2(ATTR_SIZE.x, ATTR_SIZE.y),
             attributes: vec![InnerSquare::new()],
+            label,
         }
     }
-    fn render(&mut self, ui: &mut egui::Ui, container: String) {
+    fn render(&mut self, ui: &mut egui::Ui) {
         let square_body = egui::Rect::from_min_size(self.position, self.dimension);
         //"finalized rect" which is offset properly
         let transformed_rect = {
@@ -139,7 +163,7 @@ impl Square {
             frame.show(ui, |ui| {
                 //draw each attribute
                 ui.label(
-                    egui::RichText::new(container)
+                    egui::RichText::new(&self.label)
                         .heading()
                         .color(egui::Color32::BLACK),
                 );
