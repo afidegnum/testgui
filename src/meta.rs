@@ -1,4 +1,4 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::error::Error;
 use std::fmt;
@@ -45,7 +45,7 @@ impl Error for MetadataError {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Table {
     pub table: serde_json::Value,
 }
@@ -100,11 +100,9 @@ pub async fn get_metadata(
     let finalized: Vec<Table> = rows.into_iter().map(Table::from).collect();
 
     let gen_function = move |diagram: &mut crate::app::Diagram| {
+        diagram.tables = finalized
         //from here you have access to the diagram!
         //now you can put in the code to tell it what to do with the metadata
-        for tbl in finalized {
-            diagram.handle_responses()
-        }
     };
     // sender.send(Box::new(gen_function)).unwrap();
     sender

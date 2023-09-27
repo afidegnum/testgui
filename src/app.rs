@@ -1,6 +1,6 @@
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use crate::meta::get_metadata;
+use crate::meta::{get_metadata, Table};
 use egui::{Color32, FontId, Sense, Vec2};
 use emath::{Align2, Pos2};
 use tokio::runtime;
@@ -10,12 +10,19 @@ pub const INIT_POS: Pos2 = egui::pos2(10.0, 15.0);
 pub const ATTR_SIZE: Vec2 = egui::vec2(150.0, 25.0);
 // pub const ATTR_PADDING: Vec2 = egui::vec2(15.0, 10.0);
 
+// #[derive(serde::Deserialize, serde::Serialize)]
+pub enum TaskMessage {
+    //Applicaple to any scenario, behaves almost like a callback
+    Generic(Box<dyn FnOnce(&mut Diagram) + Send>),
+}
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 ///
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default = "Diagram::new")]
 pub struct Diagram {
-    shapes: Vec<Square>,
+    pub shapes: Vec<Square>,
+    pub tables: Vec<Table>,
     canvas_size: Vec2,
     #[serde(skip)]
     task_reciever: Receiver<TaskMessage>,
@@ -30,6 +37,8 @@ impl Diagram {
         let (_task_sender, task_reciever) = mpsc::channel::<TaskMessage>();
         Self {
             shapes: vec![Square::new()],
+
+            tables,
             canvas_size: Vec2::splat(400.0),
             task_reciever,
             _task_sender,
@@ -81,11 +90,32 @@ impl egui::Widget for &mut Diagram {
                     // .await
                     // .unwrap();
                     // rt.block_on(async {});
+                    let sender = self._task_sender.clone();
+                    let other_ctx = ui.ctx().clone();
 
-                    for shape in self.shapes.iter_mut() {
-                        let container = "container".to_string();
+                    tokio::task::spawn(async {
+                        let (client, connection) = tokio_postgres::connect(
+                            "postgresql://postgres:chou1979@localhost/authenticate",
+                            NoTls,
+                        )
+                        .await
+                        .unwrap();
 
-                        shape.render(ui, container);
+                        let schema = "public".to_string();
+                        get_metadata(&client, schema, other_ctx, sender)
+                    });
+                    // for shape in self.shapes.iter_mut() {
+                    //     let container = "container".to_string();
+
+                    //     shape.render(ui, container);
+                    // }
+
+                    for (shape, table) in self.shapes.iter_mut().zip(&self.tables) {
+                        if let Some(table_name) =
+                            table.table.get("table_name").and_then(|v| v.as_str())
+                        {
+                            shape.render(ui, table_name.to_owned());
+                        }
                     }
                     ui.allocate_at_least(self.canvas_size, Sense::hover());
                 });
@@ -189,13 +219,6 @@ impl InnerSquare {
         );
     }
 }
-
-// #[derive(serde::Deserialize, serde::Serialize)]
-pub enum TaskMessage {
-    //Applicaple to any scenario, behaves almost like a callback
-    Generic(Box<dyn FnOnce(&mut Diagram) + Send>),
-}
-
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
