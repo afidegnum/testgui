@@ -63,51 +63,10 @@ impl egui::Widget for &mut Diagram {
         egui::Frame::canvas(ui.style())
             .show(ui, |ui| {
                 egui::ScrollArea::new([true; 2]).show(ui, |ui| {
-                    // let rt = runtime::Runtime::new().unwrap();
-
-                    // tokio::task::spawn_blocking(|| {
-                    //     let (client, connection) = tokio_postgres::connect(
-                    //         "postgresql://postgres:chou1979@localhost/authenticate",
-                    //         NoTls,
-                    //     )
-                    //     .await
-                    //     .unwrap();
-
-                    //     let schema = "public".to_string();
-                    //     // let meta_data = get_metadata(&client, schema).await;
-                    //     //
-                    //     //
-                    //     let sender = self._task_sender.clone();
-                    //     let other_ctx = ui.ctx().clone();
-                    //     //requires you add the "rt" feature to tokio!!
-                    //     tokio::task::spawn(async {
-                    //         get_metadata(&client, schema, other_ctx, sender)
-                    //     });
-                    //     //
-                    //     //
-                    //     //you'll probably want to use somehting like this since it's what you returned earlier
-                    // })
-                    // .await
-                    // .unwrap();
-                    // rt.block_on(async {});
                     let sender = self._task_sender.clone();
                     let other_ctx = ui.ctx().clone();
                     self.handle_responses();
                     tokio::task::spawn(async {
-                        // let (client, connection) = tokio_postgres::connect(
-                        //     "postgresql://postgres:chou1979@localhost/authenticate",
-                        //     NoTls,
-                        // )
-                        // .await
-                        // .unwrap();
-                        // // The connection object performs the actual communication with the database,
-                        // // so spawn it off to run on its own.
-                        // tokio::spawn(async move {
-                        //     if let Err(e) = connection.await {
-                        //         eprintln!("connection error: {}", e);
-                        //     }
-                        // });
-
                         let schema = "public".to_string();
 
                         get_metadata(schema, other_ctx, sender)
@@ -118,10 +77,12 @@ impl egui::Widget for &mut Diagram {
                     //     shape.render(ui, container);
                     // }
 
+                    println!("Pairs: {:#?}, \n {:#?}", self.shapes, self.tables);
                     for (shape, table) in self.shapes.iter_mut().zip(&self.tables) {
                         if let Some(table_name) =
                             table.table.get("table_name").and_then(|v| v.as_str())
                         {
+                            println!("Table: {:#?}", table_name.clone());
                             shape.render(ui, table_name.to_owned());
                         }
                     }
@@ -133,7 +94,7 @@ impl egui::Widget for &mut Diagram {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct Square {
     position: egui::Pos2,
     dimension: egui::Vec2,
@@ -190,7 +151,7 @@ impl Square {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub struct InnerSquare {
     position: egui::Pos2,
     dimension: egui::Vec2,
