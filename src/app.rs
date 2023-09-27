@@ -92,7 +92,7 @@ impl egui::Widget for &mut Diagram {
                     // rt.block_on(async {});
                     let sender = self._task_sender.clone();
                     let other_ctx = ui.ctx().clone();
-
+                    self.handle_responses();
                     tokio::task::spawn(async {
                         // let (client, connection) = tokio_postgres::connect(
                         //     "postgresql://postgres:chou1979@localhost/authenticate",
@@ -127,6 +127,7 @@ impl egui::Widget for &mut Diagram {
                     }
                     ui.allocate_at_least(self.canvas_size, Sense::hover());
                 });
+                ui.ctx().set_debug_on_hover(true);
             })
             .response
     }
